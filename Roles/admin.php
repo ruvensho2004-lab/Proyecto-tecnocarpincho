@@ -1,30 +1,13 @@
 <?php
-// Mostrar errores (opcional)
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
-
 session_start();
-if ($_SESSION['rol'] !== 'admin') {
+
+// Verificar que hay sesión activa y el rol es administrador (1)
+if (!isset($_SESSION['usuario']) || $_SESSION['usuario']['rol'] != 1) {
     header("Location: ../index.php");
-    exit;
+    exit();
 }
 
 $nombre = $_SESSION['usuario']['nombre'] ?? 'Administrador';
-
-
-if ($rol !== 1) {
-    echo "PERSONAL AUTORIZADO.";
-    exit();
-}
-?>
-
-<?php
-session_start();
-if (!isset($_SESSION['usuario']) || $_SESSION['usuario']['rol'] != 1) {
-    header("Location: login.html");
-    exit();
-}
-$nombre = $_SESSION['usuario']['nombre'];
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -49,19 +32,23 @@ $nombre = $_SESSION['usuario']['nombre'];
 </header>
 
 <div class="menu">
-    <a href="#">Usuarios</a>
-    <a href="#">Grados</a>
-    <a href="#">Aulas</a>
-    <a href="#">Materias</a>
-    <a href="#">Periodos</a>
-    <a href="#">Reportes</a>
-    <a href="../registro_usuario.php">Registrar usuario</a>
-    <a href="logout.php" class="float-end">Cerrar sesión</a>
+    <a href="gestionar_materias.php"><i class="fas fa-book"></i> Materias</a>
+    <a href="gestionar_periodos_actividades.php"><i class="fas fa-calendar"></i> Periodos y Actividades</a>
+    <a href="../registro_usuarios.php"><i class="fas fa-user-plus"></i> Registrar usuario</a>
+    <a href="logout.php" class="float-end"><i class="fas fa-sign-out-alt"></i> Cerrar sesión</a>
 </div>
 
 <div class="container mt-4">
     <h4>Panel de administración</h4>
     <p>Desde aquí puedes gestionar toda la información del sistema académico.</p>
+    
+    <!-- Debug info (puedes eliminar esto después) -->
+    <div class="alert alert-info mt-3">
+        <strong>Sesión activa:</strong><br>
+        Usuario: <?php echo htmlspecialchars($_SESSION['usuario']['usuario']); ?><br>
+        Rol: <?php echo $_SESSION['usuario']['rol']; ?><br>
+        ID: <?php echo $_SESSION['usuario']['id']; ?>
+    </div>
 </div>
 
 </body>

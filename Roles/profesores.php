@@ -1,26 +1,13 @@
 <?php
+session_start();
 
-if ($_SESSION['rol'] !== 'alumno') {
-    header("Location: ../index.php");
-    exit;
-}
-
-// Mostrar errores (opcional)
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
-
-// Iniciar sesión solo si no está iniciada
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-// Validar sesión y rol
+// Verificar que hay sesión activa y el rol es profesor (3)
 if (!isset($_SESSION['usuario']) || $_SESSION['usuario']['rol'] != 3) {
     header("Location: ../index.php");
     exit();
 }
 
-$nombre = $_SESSION['usuario']['nombre'];
+$nombre = $_SESSION['usuario']['nombre'] ?? 'Profesor';
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -45,16 +32,23 @@ $nombre = $_SESSION['usuario']['nombre'];
 </header>
 
 <div class="menu">
-    <a href="#">Mis Grados</a>
-    <a href="#">Lista de Alumnos</a>
-    <a href="../notas/cargar_notas.php">Cargar Notas</a>
-    <a href="#">Actividades</a>
-    <a href="logout.php" class="float-end">Cerrar sesión</a>
+    <a href="cargar_notas_profesor.php"><i class="fas fa-clipboard-list"></i> Cargar Notas</a>
+    <a href="#"><i class="fas fa-users"></i> Lista de Alumnos</a>
+    <a href="#"><i class="fas fa-chart-bar"></i> Reportes</a>
+    <a href="logout.php" class="float-end"><i class="fas fa-sign-out-alt"></i> Cerrar sesión</a>
 </div>
 
 <div class="container mt-4">
     <h4>Bienvenido al panel docente</h4>
     <p>Aquí puedes gestionar tus materias, ingresar calificaciones y ver los grupos asignados.</p>
+    
+    <!-- Debug info (puedes eliminar esto después) -->
+    <div class="alert alert-info mt-3">
+        <strong>Sesión activa:</strong><br>
+        Usuario: <?php echo htmlspecialchars($_SESSION['usuario']['usuario']); ?><br>
+        Rol: <?php echo $_SESSION['usuario']['rol']; ?><br>
+        ID: <?php echo $_SESSION['usuario']['id']; ?>
+    </div>
 </div>
 
 </body>

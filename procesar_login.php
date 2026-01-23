@@ -34,23 +34,35 @@ try {
 
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
+    // ESTE ES EL PROBLEMA: password_verify con la contraseña hasheada
     if (!password_verify($clave, $user['clave'])) {
         throw new Exception("Contraseña incorrecta.");
     }
 
-    // 🔹 AHORA SÍ SE PUEDE GUARDAR EN SESIÓN
+    // Guardar en sesión
     $_SESSION['usuario'] = [
-        "id" => $user['id'],
+        "id" => $user['usuario_id'],
+        "nombre" => $user['nombre'],
         "usuario" => $user['usuario'],
         "rol" => $user['rol']
     ];
+    
+    // También guardar el rol directamente (para compatibilidad)
+    $_SESSION['rol'] = $user['rol'];
 
-    // 🔹 REDIRECCIÓN SEGÚN ROL
+    // Redirección según rol - USAR echo para AJAX
     switch ($user['rol']) {
-        case 1: header("Location: Roles/admin.php"); break;
-        case 3: header("Location: Roles/profesores.php"); break;
-        case 4: header("Location: Roles/alumno.php"); break;
-        default: throw new Exception("Rol desconocido.");
+        case 1: 
+            echo "OK:Roles/admin.php";
+            break;
+        case 3: 
+            echo "OK:Roles/profesores.php";
+            break;
+        case 4: 
+            echo "OK:Roles/alumno.php";
+            break;
+        default: 
+            throw new Exception("Rol desconocido.");
     }
 
     exit;
@@ -58,3 +70,4 @@ try {
 } catch (Exception $e) {
     echo "❌ " . $e->getMessage();
 }
+?>
