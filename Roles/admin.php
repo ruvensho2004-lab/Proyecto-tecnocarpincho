@@ -4,11 +4,11 @@ error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
 session_start();
-
-if (!isset($_SESSION['usuario']) || $_SESSION['usuario']['rol'] != 1) {
-    header("Location: ../login.html");
-    exit();
+if ($_SESSION['rol'] !== 'admin') {
+    header("Location: ../index.php");
+    exit;
 }
+
 $nombre = $_SESSION['usuario']['nombre'] ?? 'Administrador';
 
 
@@ -55,6 +55,7 @@ $nombre = $_SESSION['usuario']['nombre'];
     <a href="#">Materias</a>
     <a href="#">Periodos</a>
     <a href="#">Reportes</a>
+    <a href="../registro_usuario.php">Registrar usuario</a>
     <a href="logout.php" class="float-end">Cerrar sesión</a>
 </div>
 

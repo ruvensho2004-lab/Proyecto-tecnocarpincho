@@ -1,4 +1,10 @@
 <?php
+
+if ($_SESSION['rol'] !== 'alumno') {
+    header("Location: ../index.php");
+    exit;
+}
+
 // Mostrar errores (opcional)
 error_reporting(E_ALL);
 ini_set('display_errors', 1);

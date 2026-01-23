@@ -1,12 +1,12 @@
 <?php
 $host = 'localhost';
-$db = 'sistema-escolar';
+$db = 'sistema_escolar';
 $user = 'root';
-$pass = 'root';
+$pass = '123456';
 
 try {
-    $conn = new PDO("mysql:host=$host;dbname=$db;charset=utf8", $user, $pass);
-    $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $pdo = new PDO("mysql:host=localhost;dbname=sistema_escolar;charset=utf8", "root", "123456");
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 } catch (PDOException $e) {
     die("Error de conexión: " . $e->getMessage());
 }

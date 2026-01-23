@@ -1,6 +1,6 @@
 <?php
 session_start();
-include_once("includes/conexion.php");
+require "incleudes/conexion.php";
 
 $usuario = $_POST['usuario'] ?? '';
 $clave = trim($_POST['clave'] ?? '');
@@ -26,36 +26,34 @@ try {
     }
 
     $stmt = $pdo->prepare($sql);
-$stmt->execute(['usuario' => $usuario]);
+    $stmt->execute(['usuario' => $usuario]);
 
+    if ($stmt->rowCount() === 0) {
+        throw new Exception("Usuario no encontrado o inactivo.");
+    }
 
-if ($stmt->rowCount() === 0) {
-    throw new Exception("Usuario no encontrado o inactivo.");
-}
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-$user = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!password_verify($clave, $user['clave'])) {
+        throw new Exception("Contraseña incorrecta.");
+    }
 
-$clave = trim($_POST['clave'] ?? '');
+    // 🔹 AHORA SÍ SE PUEDE GUARDAR EN SESIÓN
+    $_SESSION['usuario'] = [
+        "id" => $user['id'],
+        "usuario" => $user['usuario'],
+        "rol" => $user['rol']
+    ];
 
-if (!isset($user['clave']) || !password_verify($clave, $user['clave'])) {
-    throw new Exception("Contraseña incorrecta.");
-}
-
-// Si todo bien, guardar datos en sesión
-
-    
-
-    $_SESSION['usuario'] = $user;
-    $_SESSION['rol'] = $user['rol'];
-
-    // Devolver destino según el rol
+    // 🔹 REDIRECCIÓN SEGÚN ROL
     switch ($user['rol']) {
-        case 1: echo 'OK:Roles/admin.php'; break;
-        case 2: echo 'OK:Roles/asistente.php'; break;
-        case 3: echo 'OK:Roles/profesores.php'; break;
-        case 4: echo 'OK:Roles/alumno.php'; break;
+        case 1: header("Location: Roles/admin.php"); break;
+        case 3: header("Location: Roles/profesores.php"); break;
+        case 4: header("Location: Roles/alumno.php"); break;
         default: throw new Exception("Rol desconocido.");
     }
+
+    exit;
 
 } catch (Exception $e) {
     echo "❌ " . $e->getMessage();
