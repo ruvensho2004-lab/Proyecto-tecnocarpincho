@@ -1,6 +1,6 @@
 <?php
 session_start();
-require "incleudes/conexion.php";
+require "includes/conexion.php";
 
 $usuario = $_POST['usuario'] ?? '';
 $clave = trim($_POST['clave'] ?? '');
