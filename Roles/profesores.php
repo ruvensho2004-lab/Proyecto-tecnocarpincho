@@ -1,11 +1,6 @@
 <?php
-session_start();
-
-// Verificar que hay sesión activa y el rol es profesor (3)
-if (!isset($_SESSION['usuario']) || $_SESSION['usuario']['rol'] != 3) {
-    header("Location: ../index.php");
-    exit();
-}
+require_once '../includes/security.php';
+verificar_rol([3]); // Solo profesores
 
 $nombre = $_SESSION['usuario']['nombre'] ?? 'Profesor';
 ?>
@@ -35,6 +30,7 @@ $nombre = $_SESSION['usuario']['nombre'] ?? 'Profesor';
     <a href="cargar_notas_profesor.php"><i class="fas fa-clipboard-list"></i> Cargar Notas</a>
     <a href="#"><i class="fas fa-users"></i> Lista de Alumnos</a>
     <a href="#"><i class="fas fa-chart-bar"></i> Reportes</a>
+    <a href="../cambiar_password.php"><i class="fas fa-key"></i> Cambiar Contraseña</a>
     <a href="logout.php" class="float-end"><i class="fas fa-sign-out-alt"></i> Cerrar sesión</a>
 </div>
 

@@ -1,11 +1,6 @@
 <?php
-session_start();
-
-// Verificar que hay sesión activa y el rol es administrador (1)
-if (!isset($_SESSION['usuario']) || $_SESSION['usuario']['rol'] != 1) {
-    header("Location: ../index.php");
-    exit();
-}
+require_once '../includes/security.php';
+verificar_rol([1]); // Solo administradores
 
 $nombre = $_SESSION['usuario']['nombre'] ?? 'Administrador';
 ?>
@@ -34,7 +29,10 @@ $nombre = $_SESSION['usuario']['nombre'] ?? 'Administrador';
 <div class="menu">
     <a href="gestionar_materias.php"><i class="fas fa-book"></i> Materias</a>
     <a href="gestionar_periodos_actividades.php"><i class="fas fa-calendar"></i> Periodos y Actividades</a>
-    <a href="../registro_usuarios.php"><i class="fas fa-user-plus"></i> Registrar usuario</a>
+    <a href="gestionar_alumnos.php"><i class="fas fa-user-graduate"></i> Alumnos</a>
+    <a href="gestionar_profesores.php"><i class="fas fa-chalkboard-teacher"></i> Profesores</a>
+    <a href="registro_usuarios.php"><i class="fas fa-user-plus"></i> Registrar usuario</a>
+    <a href="../cambiar_contraseña.php"><i class="fas fa-key"></i> Cambiar Contraseña</a>
     <a href="logout.php" class="float-end"><i class="fas fa-sign-out-alt"></i> Cerrar sesión</a>
 </div>
 
