@@ -13,6 +13,9 @@ $nombre_admin = $_SESSION['usuario']['nombre'] ?? 'Administrador';
 $mensaje = '';
 $tipo_mensaje = '';
 
+// Obtener grados
+$grados = $pdo->query("SELECT * FROM grados WHERE estado = 1 ORDER BY grado_id")->fetchAll(PDO::FETCH_ASSOC);
+
 // Procesar acciones (Crear, Editar, Eliminar)
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     try {
@@ -20,13 +23,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             switch ($_POST['accion']) {
                 case 'crear':
                     $nombre = trim($_POST['nombre_materia']);
+                    $grado_id = !empty($_POST['grado_id']) ? (int)$_POST['grado_id'] : null;
+                    
                     if (empty($nombre)) {
                         throw new Exception("El nombre de la materia es obligatorio");
                     }
                     
-                    $sql = "INSERT INTO materias (nombre_materia, estado) VALUES (:nombre, 1)";
+                    $sql = "INSERT INTO materias (nombre_materia, grado_id, estado) VALUES (:nombre, :grado_id, 1)";
                     $stmt = $pdo->prepare($sql);
-                    $stmt->execute(['nombre' => $nombre]);
+                    $stmt->execute(['nombre' => $nombre, 'grado_id' => $grado_id]);
                     $mensaje = "Materia creada exitosamente";
                     $tipo_mensaje = "success";
                     break;
@@ -34,14 +39,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 case 'editar':
                     $id = (int)$_POST['materia_id'];
                     $nombre = trim($_POST['nombre_materia']);
+                    $grado_id = !empty($_POST['grado_id']) ? (int)$_POST['grado_id'] : null;
                     
                     if (empty($nombre)) {
                         throw new Exception("El nombre de la materia es obligatorio");
                     }
                     
-                    $sql = "UPDATE materias SET nombre_materia = :nombre WHERE materia_id = :id";
+                    $sql = "UPDATE materias SET nombre_materia = :nombre, grado_id = :grado_id WHERE materia_id = :id";
                     $stmt = $pdo->prepare($sql);
-                    $stmt->execute(['nombre' => $nombre, 'id' => $id]);
+                    $stmt->execute(['nombre' => $nombre, 'grado_id' => $grado_id, 'id' => $id]);
                     $mensaje = "Materia actualizada exitosamente";
                     $tipo_mensaje = "success";
                     break;
@@ -64,8 +70,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
 }
 
-// Obtener todas las materias
-$sql = "SELECT * FROM materias ORDER BY nombre_materia ASC";
+// Obtener todas las materias con información del grado
+$sql = "SELECT m.*, g.nombre_grado 
+        FROM materias m 
+        LEFT JOIN grados g ON m.grado_id = g.grado_id 
+        ORDER BY m.nombre_materia ASC";
 $stmt = $pdo->query($sql);
 $materias = $stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
@@ -143,6 +152,7 @@ $materias = $stmt->fetchAll(PDO::FETCH_ASSOC);
                         <tr>
                             <th>ID</th>
                             <th>Nombre de la Materia</th>
+                            <th>Grado Asignado</th>
                             <th>Estado</th>
                             <th>Acciones</th>
                         </tr>
@@ -155,6 +165,13 @@ $materias = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                 <strong><?php echo htmlspecialchars($materia['nombre_materia']); ?></strong>
                             </td>
                             <td>
+                                <?php if ($materia['nombre_grado']): ?>
+                                <span class="badge bg-info"><?php echo htmlspecialchars($materia['nombre_grado']); ?></span>
+                                <?php else: ?>
+                                <span class="badge bg-secondary">Todos los grados</span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
                                 <span class="badge <?php echo $materia['estado'] == 1 ? 'badge-activo' : 'badge-inactivo'; ?>">
                                     <?php echo $materia['estado'] == 1 ? 'Activa' : 'Inactiva'; ?>
                                 </span>
@@ -162,7 +179,7 @@ $materias = $stmt->fetchAll(PDO::FETCH_ASSOC);
                             <td class="table-actions">
                                 <!-- Botón Editar -->
                                 <button class="btn btn-sm btn-warning" 
-                                        onclick="editarMateria(<?php echo $materia['materia_id']; ?>, '<?php echo htmlspecialchars($materia['nombre_materia']); ?>')">
+                                        onclick="editarMateria(<?php echo $materia['materia_id']; ?>, '<?php echo htmlspecialchars($materia['nombre_materia']); ?>', <?php echo $materia['grado_id'] ?? 'null'; ?>)">
                                     <i class="fas fa-edit"></i> Editar
                                 </button>
                                 
@@ -209,6 +226,19 @@ $materias = $stmt->fetchAll(PDO::FETCH_ASSOC);
                         <input type="text" name="nombre_materia" id="edit_nombre_materia" 
                                class="form-control" required>
                     </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Grado Asignado:</label>
+                        <select name="grado_id" id="edit_grado_id" class="form-select">
+                            <option value="">Todos los grados</option>
+                            <?php foreach ($grados as $grado): ?>
+                            <option value="<?php echo $grado['grado_id']; ?>">
+                                <?php echo htmlspecialchars($grado['nombre_grado']); ?>
+                            </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <small class="text-muted">Dejar en blanco para que sea visible en todos los grados</small>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -223,9 +253,10 @@ $materias = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-function editarMateria(id, nombre) {
+function editarMateria(id, nombre, gradoId) {
     document.getElementById('edit_materia_id').value = id;
     document.getElementById('edit_nombre_materia').value = nombre;
+    document.getElementById('edit_grado_id').value = gradoId || '';
     new bootstrap.Modal(document.getElementById('modalEditar')).show();
 }
 </script>

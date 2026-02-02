@@ -69,7 +69,7 @@ $nombre_admin = $_SESSION['usuario']['nombre'] ?? 'Administrador';
         <div id="mensaje"></div>
     </form>
 
-    <a href="Roles/admin.php" class="btn btn-secondary w-100 btn-volver">← Volver al Panel</a>
+    <a href="admin.php" class="btn btn-secondary w-100 btn-volver">← Volver al Panel</a>
 </div>
 
 <script>
