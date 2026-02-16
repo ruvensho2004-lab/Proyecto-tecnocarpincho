@@ -1,0 +1,56 @@
+# Composer
+/vendor/
+composer.lock
+composer.phar
+
+# IDE & Editor files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+.DS_Store
+Thumbs.db
+
+# PHP
+*.log
+*.cache
+/logs/*.log
+/includes/logs/*.log
+
+# Configuration files (security)
+/includes/conexion.php
+config.php
+.env
+.env.*
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
+
+# Upload directories
+/uploads/
+/temp/
+
+# Database backups
+*.sql
+*.sql.gz
+!base de datos/*.sql
+
+# Node modules (if using any frontend tools)
+/node_modules/
+package-lock.json
+
+# Build artifacts
+/dist/
+/build/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db

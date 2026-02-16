@@ -23,10 +23,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             switch ($_POST['accion']) {
                 case 'crear':
                     $nombre = trim($_POST['nombre_materia']);
-                    $grado_id = !empty($_POST['grado_id']) ? (int)$_POST['grado_id'] : null;
+                    $grado_id = isset($_POST['grado_id']) && !empty($_POST['grado_id']) ? (int)$_POST['grado_id'] : null;
                     
                     if (empty($nombre)) {
                         throw new Exception("El nombre de la materia es obligatorio");
+                    }
+                    
+                    if ($grado_id === null) {
+                        throw new Exception("Debe seleccionar un grado para la materia");
                     }
                     
                     $sql = "INSERT INTO materias (nombre_materia, grado_id, estado) VALUES (:nombre, :grado_id, 1)";
@@ -39,10 +43,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 case 'editar':
                     $id = (int)$_POST['materia_id'];
                     $nombre = trim($_POST['nombre_materia']);
-                    $grado_id = !empty($_POST['grado_id']) ? (int)$_POST['grado_id'] : null;
+                    $grado_id = isset($_POST['grado_id']) && !empty($_POST['grado_id']) ? (int)$_POST['grado_id'] : null;
                     
                     if (empty($nombre)) {
                         throw new Exception("El nombre de la materia es obligatorio");
+                    }
+                    
+                    if ($grado_id === null) {
+                        throw new Exception("Debe seleccionar un grado para la materia");
                     }
                     
                     $sql = "UPDATE materias SET nombre_materia = :nombre, grado_id = :grado_id WHERE materia_id = :id";
@@ -125,11 +133,21 @@ $materias = $stmt->fetchAll(PDO::FETCH_ASSOC);
             <form method="POST">
                 <input type="hidden" name="accion" value="crear">
                 <div class="row">
-                    <div class="col-md-8">
+                    <div class="col-md-6">
                         <input type="text" name="nombre_materia" class="form-control" 
                                placeholder="Nombre de la materia (ej: Matemáticas, Español, etc.)" required>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
+                        <select name="grado_id" class="form-select" required>
+                            <option value="">Seleccione un grado</option>
+                            <?php foreach ($grados as $grado): ?>
+                            <option value="<?php echo $grado['grado_id']; ?>">
+                                <?php echo htmlspecialchars($grado['nombre_grado']); ?>
+                            </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
                         <button type="submit" class="btn btn-primary w-100">
                             <i class="fas fa-save"></i> Guardar Materia
                         </button>
@@ -168,7 +186,7 @@ $materias = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                 <?php if ($materia['nombre_grado']): ?>
                                 <span class="badge bg-info"><?php echo htmlspecialchars($materia['nombre_grado']); ?></span>
                                 <?php else: ?>
-                                <span class="badge bg-secondary">Todos los grados</span>
+                                <span class="badge bg-warning text-dark">Sin grado asignado</span>
                                 <?php endif; ?>
                             </td>
                             <td>
@@ -229,15 +247,14 @@ $materias = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     
                     <div class="mb-3">
                         <label class="form-label">Grado Asignado:</label>
-                        <select name="grado_id" id="edit_grado_id" class="form-select">
-                            <option value="">Todos los grados</option>
+                        <select name="grado_id" id="edit_grado_id" class="form-select" required>
+                            <option value="">Seleccione un grado</option>
                             <?php foreach ($grados as $grado): ?>
                             <option value="<?php echo $grado['grado_id']; ?>">
                                 <?php echo htmlspecialchars($grado['nombre_grado']); ?>
                             </option>
                             <?php endforeach; ?>
                         </select>
-                        <small class="text-muted">Dejar en blanco para que sea visible en todos los grados</small>
                     </div>
                 </div>
                 <div class="modal-footer">

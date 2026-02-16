@@ -28,9 +28,10 @@ $nombre = $_SESSION['usuario']['nombre'] ?? 'Profesor';
 
 <div class="menu">
     <a href="cargar_notas_profesor.php"><i class="fas fa-clipboard-list"></i> Cargar Notas</a>
-    <a href="#"><i class="fas fa-users"></i> Lista de Alumnos</a>
+    <a href="gestionar_actividades.php"><i class="fas fa-tasks"></i> Actividades</a>
+    <a href="lista_estudiantes_profesor.php"><i class="fas fa-users"></i> Lista de Alumnos</a>>
     <a href="#"><i class="fas fa-chart-bar"></i> Reportes</a>
-    <a href="../cambiar_password.php"><i class="fas fa-key"></i> Cambiar Contraseña</a>
+    <a href="mi_perfil.php"><i class="fas fa-user-circle"></i> Mi Perfil</a>
     <a href="logout.php" class="float-end"><i class="fas fa-sign-out-alt"></i> Cerrar sesión</a>
 </div>
 

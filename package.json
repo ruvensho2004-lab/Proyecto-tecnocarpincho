@@ -1,0 +1,26 @@
+{
+  "name": "sistema-academico-liceo",
+  "version": "1.0.0",
+  "description": "Sistema de Gestión Académica para Liceos",
+  "main": "index.php",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "echo \"Building project...\"",
+    "dev": "php -S localhost:8000"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tu-usuario/sistema-academico.git"
+  },
+  "keywords": [
+    "sistema-academico",
+    "php",
+    "mysql",
+    "educacion",
+    "liceo"
+  ],
+  "author": "Tu Nombre",
+  "license": "MIT",
+  "devDependencies": {},
+  "dependencies": {}
+}

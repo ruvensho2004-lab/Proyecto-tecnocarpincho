@@ -30,9 +30,11 @@ $nombre = $_SESSION['usuario']['nombre'] ?? 'Administrador';
     <a href="gestionar_materias.php"><i class="fas fa-book"></i> Materias</a>
     <a href="gestionar_periodos_actividades.php"><i class="fas fa-calendar"></i> Periodos y Actividades</a>
     <a href="gestionar_alumnos.php"><i class="fas fa-user-graduate"></i> Alumnos</a>
+    <a href="gestionar_secciones.php"><i class="fas fa-layer-group"></i> Secciones</a>
     <a href="gestionar_profesores.php"><i class="fas fa-chalkboard-teacher"></i> Profesores</a>
+    <a href="lista_estudiantes_admin.php"><i class="fas fa-list-ul"></i> Lista de Estudiantes</a>
     <a href="registro_usuarios.php"><i class="fas fa-user-plus"></i> Registrar usuario</a>
-    <a href="../cambiar_contraseña.php"><i class="fas fa-key"></i> Cambiar Contraseña</a>
+    <a href="mi_perfil.php"><i class="fas fa-user-circle"></i> Mi Perfil</a>
     <a href="logout.php" class="float-end"><i class="fas fa-sign-out-alt"></i> Cerrar sesión</a>
 </div>
 

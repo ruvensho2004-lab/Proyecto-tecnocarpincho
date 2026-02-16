@@ -38,7 +38,7 @@ $id = $_SESSION['usuario']['id'] ?? 0;
 <div class="menu">
     <a href="ver_notas_alumno.php"><i class="fas fa-book-open"></i> Ver Calificaciones</a>
     <a href="#"><i class="fas fa-tasks"></i> Actividades</a>
-    <a href="../cambiar_contraseña.php"><i class="fas fa-key"></i> Cambiar Contraseña</a>
+    <a href="mi_perfil.php"><i class="fas fa-user-circle"></i> Mi Perfil</a>
     <a href="logout.php" class="float-end"><i class="fas fa-sign-out-alt"></i> Cerrar sesión</a>
 </div>
 
