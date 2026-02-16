@@ -67,10 +67,6 @@ Plataforma web que centraliza la gestión académica y administrativa de liceos,
   - mbstring
   - session
 
-### Desarrollo (Opcional)
-- Composer (gestor de dependencias)
-- Git (control de versiones)
-
 ## 🚀 Instalación
 
 ### 1. Clonar o Descargar el Proyecto
@@ -213,53 +209,19 @@ sistema-academico/
 - Actividades
 - Mi Perfil
 
-## 🧪 Testing (Opcional)
-
-Ejecutar pruebas unitarias:
-```bash
-composer test
-```
-
-Verificar estilo de código:
-```bash
-composer check-style
-```
-
 ## 📝 Licencia
 
 Este proyecto está bajo la Licencia MIT. Ver archivo `LICENSE` para más detalles.
 
 ## 👨‍💻 Autor
 
-- **Tu Nombre** - *Desarrollo Inicial*
-
-## 🤝 Contribuciones
-
-Las contribuciones son bienvenidas. Por favor:
-
-1. Fork el proyecto
-2. Crea una rama para tu feature (`git checkout -b feature/NuevaCaracteristica`)
-3. Commit tus cambios (`git commit -m 'Agregar nueva característica'`)
-4. Push a la rama (`git push origin feature/NuevaCaracteristica`)
-5. Abre un Pull Request
+- Ruben Felipe Lara Urbina - Desarrollo Inicial
+- 
 
 ## 📧 Soporte
 
 Para reportar bugs o solicitar características, abre un issue en el repositorio.
 
-## 🎯 Roadmap
 
-- [ ] Sistema de mensajería interna
-- [ ] Notificaciones por email
-- [ ] Reportes en PDF
-- [ ] Dashboard con gráficos
-- [ ] App móvil
-- [ ] API REST
 
-## 📸 Capturas de Pantalla
 
-(Agrega capturas de pantalla de tu sistema aquí)
-
----
-
-⭐ Si este proyecto te fue útil, considera darle una estrella en GitHub
