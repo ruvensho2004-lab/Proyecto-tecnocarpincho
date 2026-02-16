@@ -130,9 +130,11 @@ $promedio_general = $cantidad_total > 0 ? round($suma_total / $cantidad_total, 2
     <div class="no-print">
         <a href="alumno.php" class="btn btn-secondary mb-3">
             <i class="fas fa-arrow-left"></i> Volver al Panel
-        </a>
-        <button onclick="window.print()" class="btn btn-success mb-3 float-end">
-            <i class="fas fa-print"></i> Imprimir Boletín
+            </a>
+            <a href="boleta_pdf.php?periodo_id=<?= $periodo_seleccionado ?: 1 ?>" 
+            class="btn btn-success" target="_blank">
+            🖨️ Descargar Boleta PDF
+            </a>
         </button>
     </div>
 

@@ -12,6 +12,23 @@ require_once '../includes/conexion.php';
 $profesor_id = $_SESSION['usuario']['id'];
 $nombre_profesor = $_SESSION['usuario']['nombre'] ?? 'Profesor';
 
+// Primero, verificar qué columnas tiene la tabla alumnos
+try {
+    $check_columns = $pdo->query("SHOW COLUMNS FROM alumnos");
+    $columns = $check_columns->fetchAll(PDO::FETCH_COLUMN);
+    
+    // Determinar qué columnas están disponibles
+    $has_nombre = in_array('nombre', $columns);
+    $has_apellido = in_array('apellido', $columns);
+    $has_nombre_completo = in_array('nombre_completo', $columns);
+    $has_nombre_alumno = in_array('nombre_alumno', $columns); // FIX
+    $has_cedula = in_array('cedula', $columns);
+    $has_fecha_nacimiento = in_array('fecha_nacimiento', $columns);
+    
+} catch (Exception $e) {
+    die("Error al verificar estructura: " . $e->getMessage());
+}
+
 // Obtener las materias, grados y secciones que imparte este profesor
 $sql_asignaciones = "SELECT DISTINCT 
                         m.materia_id, m.nombre_materia,
@@ -30,16 +47,32 @@ $asignaciones = $stmt_asignaciones->fetchAll(PDO::FETCH_ASSOC);
 // Filtros seleccionados
 $filtro_grado = isset($_GET['grado']) ? (int)$_GET['grado'] : 0;
 $filtro_seccion = isset($_GET['seccion']) ? (int)$_GET['seccion'] : 0;
-$filtro_materia = isset($_GET['materia']) ? (int)$_GET['materia'] : 0;
 $busqueda = isset($_GET['busqueda']) ? trim($_GET['busqueda']) : '';
+
+// Construir SELECT dinámico según columnas disponibles
+$select_fields = "a.alumno_id";
+
+if ($has_nombre_completo) {
+    $select_fields .= ", a.nombre_completo";
+} elseif ($has_nombre && $has_apellido) {
+    $select_fields .= ", a.nombre, a.apellido";
+} elseif ($has_nombre) {
+    $select_fields .= ", a.nombre";
+} elseif ($has_nombre_alumno) {
+    $select_fields .= ", a.nombre_alumno"; // FIX
+}
+
+if ($has_cedula) {
+    $select_fields .= ", a.cedula";
+}
+
+if ($has_fecha_nacimiento) {
+    $select_fields .= ", a.fecha_nacimiento";
+}
 
 // Construir consulta de estudiantes
 $sql_estudiantes = "SELECT DISTINCT
-                        a.alumno_id,
-                        a.nombre,
-                        a.apellido,
-                        a.cedula,
-                        a.fecha_nacimiento,
+                        $select_fields,
                         g.nombre_grado,
                         s.nombre_seccion,
                         u.usuario,
@@ -67,11 +100,28 @@ if ($filtro_seccion > 0) {
 }
 
 if (!empty($busqueda)) {
-    $sql_estudiantes .= " AND (a.nombre LIKE :busqueda OR a.apellido LIKE :busqueda OR a.cedula LIKE :busqueda)";
-    $params['busqueda'] = "%$busqueda%";
+    $search_conditions = [];
+    if ($has_nombre) $search_conditions[] = "a.nombre LIKE :busqueda";
+    if ($has_apellido) $search_conditions[] = "a.apellido LIKE :busqueda";
+    if ($has_nombre_completo) $search_conditions[] = "a.nombre_completo LIKE :busqueda";
+    if ($has_nombre_alumno) $search_conditions[] = "a.nombre_alumno LIKE :busqueda"; // FIX
+    if ($has_cedula) $search_conditions[] = "a.cedula LIKE :busqueda";
+    
+    if (!empty($search_conditions)) {
+        $sql_estudiantes .= " AND (" . implode(" OR ", $search_conditions) . ")";
+        $params['busqueda'] = "%$busqueda%";
+    }
 }
 
-$sql_estudiantes .= " ORDER BY g.nombre_grado, s.nombre_seccion, a.apellido, a.nombre";
+$sql_estudiantes .= " ORDER BY g.nombre_grado, s.nombre_seccion";
+
+if ($has_apellido) {
+    $sql_estudiantes .= ", a.apellido, a.nombre";
+} elseif ($has_nombre) {
+    $sql_estudiantes .= ", a.nombre";
+} elseif ($has_nombre_alumno) {
+    $sql_estudiantes .= ", a.nombre_alumno"; // FIX ORDER BY
+}
 
 $stmt_estudiantes = $pdo->prepare($sql_estudiantes);
 $stmt_estudiantes->execute($params);
@@ -87,6 +137,20 @@ foreach ($asignaciones as $asig) {
     if (!isset($secciones_profesor[$asig['seccion_id']])) {
         $secciones_profesor[$asig['seccion_id']] = $asig['nombre_seccion'];
     }
+}
+
+// Función para obtener nombre completo del estudiante
+function obtener_nombre_estudiante($estudiante) {
+    if (isset($estudiante['nombre_completo'])) {
+        return $estudiante['nombre_completo'];
+    } elseif (isset($estudiante['nombre']) && isset($estudiante['apellido'])) {
+        return $estudiante['nombre'] . ' ' . $estudiante['apellido'];
+    } elseif (isset($estudiante['nombre'])) {
+        return $estudiante['nombre'];
+    } elseif (isset($estudiante['nombre_alumno'])) {
+        return $estudiante['nombre_alumno']; // FIX
+    }
+    return 'Sin nombre';
 }
 ?>
 <!DOCTYPE html>
@@ -142,12 +206,6 @@ foreach ($asignaciones as $asig) {
         .stats-label {
             color: #666;
             font-size: 0.9rem;
-        }
-        .filter-section {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 10px;
-            margin-bottom: 20px;
         }
         .student-photo {
             width: 40px;
@@ -220,24 +278,25 @@ foreach ($asignaciones as $asig) {
     </div>
 
     <!-- Mis Asignaciones -->
+    <?php if (count($asignaciones) > 0): ?>
     <div class="card mb-4">
         <div class="card-body">
             <h6 class="mb-3"><i class="fas fa-clipboard-list"></i> Mis Asignaciones:</h6>
-            <?php if (count($asignaciones) > 0): ?>
-                <?php foreach ($asignaciones as $asig): ?>
-                    <span class="asignacion-badge">
-                        <i class="fas fa-book"></i> <?php echo htmlspecialchars($asig['nombre_materia']); ?> - 
-                        <?php echo htmlspecialchars($asig['nombre_grado']); ?> 
-                        <?php echo htmlspecialchars($asig['nombre_seccion']); ?>
-                    </span>
-                <?php endforeach; ?>
-            <?php else: ?>
-                <div class="alert alert-warning">
-                    <i class="fas fa-exclamation-triangle"></i> No tienes asignaciones activas.
-                </div>
-            <?php endif; ?>
+            <?php foreach ($asignaciones as $asig): ?>
+                <span class="asignacion-badge">
+                    <i class="fas fa-book"></i> <?php echo htmlspecialchars($asig['nombre_materia']); ?> - 
+                    <?php echo htmlspecialchars($asig['nombre_grado']); ?> 
+                    <?php echo htmlspecialchars($asig['nombre_seccion']); ?>
+                </span>
+            <?php endforeach; ?>
         </div>
     </div>
+    <?php else: ?>
+    <div class="alert alert-warning">
+        <i class="fas fa-exclamation-triangle"></i> No tienes asignaciones activas. 
+        Contacta al administrador para que te asigne materias y secciones.
+    </div>
+    <?php endif; ?>
 
     <!-- Filtros -->
     <div class="card">
@@ -273,7 +332,7 @@ foreach ($asignaciones as $asig) {
                 <div class="col-md-4">
                     <label class="form-label">Buscar</label>
                     <input type="text" name="busqueda" class="form-control" 
-                           placeholder="Nombre, apellido o cédula..." 
+                           placeholder="Nombre o cédula..." 
                            value="<?php echo htmlspecialchars($busqueda); ?>">
                 </div>
                 
@@ -311,29 +370,32 @@ foreach ($asignaciones as $asig) {
                         <tr>
                             <th>ID</th>
                             <th>Estudiante</th>
-                            <th>Cédula</th>
+                            <?php if ($has_cedula): ?><th>Cédula</th><?php endif; ?>
                             <th>Grado</th>
                             <th>Sección</th>
                             <th>Usuario</th>
                             <th>Estado</th>
-                            <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach ($estudiantes as $estudiante): ?>
+                        <?php foreach ($estudiantes as $estudiante): 
+                            $nombre_completo = obtener_nombre_estudiante($estudiante);
+                        ?>
                         <tr>
                             <td><?php echo $estudiante['alumno_id']; ?></td>
                             <td>
                                 <div class="d-flex align-items-center">
                                     <div class="student-photo me-2">
-                                        <?php echo strtoupper(substr($estudiante['nombre'], 0, 1)); ?>
+                                        <?php echo strtoupper(substr($nombre_completo, 0, 1)); ?>
                                     </div>
                                     <div>
-                                        <strong><?php echo htmlspecialchars($estudiante['nombre'] . ' ' . $estudiante['apellido']); ?></strong>
+                                        <strong><?php echo htmlspecialchars($nombre_completo); ?></strong>
                                     </div>
                                 </div>
                             </td>
+                            <?php if ($has_cedula): ?>
                             <td><?php echo htmlspecialchars($estudiante['cedula'] ?? 'N/A'); ?></td>
+                            <?php endif; ?>
                             <td><span class="badge bg-info"><?php echo htmlspecialchars($estudiante['nombre_grado']); ?></span></td>
                             <td><span class="badge bg-secondary"><?php echo htmlspecialchars($estudiante['nombre_seccion']); ?></span></td>
                             <td><?php echo htmlspecialchars($estudiante['usuario']); ?></td>
@@ -341,11 +403,6 @@ foreach ($asignaciones as $asig) {
                                 <span class="badge <?php echo $estudiante['estado'] == 1 ? 'badge-activo' : 'badge-inactivo'; ?>">
                                     <?php echo $estudiante['estado'] == 1 ? 'Activo' : 'Inactivo'; ?>
                                 </span>
-                            </td>
-                            <td>
-                                <button class="btn btn-sm btn-info" onclick="verDetalles(<?php echo $estudiante['alumno_id']; ?>)">
-                                    <i class="fas fa-eye"></i> Ver
-                                </button>
                             </td>
                         </tr>
                         <?php endforeach; ?>
@@ -355,40 +412,23 @@ foreach ($asignaciones as $asig) {
             <?php else: ?>
             <div class="alert alert-info">
                 <i class="fas fa-info-circle"></i> 
-                No se encontraron estudiantes con los filtros seleccionados.
+                No se encontraron estudiantes. 
+                <?php if (count($asignaciones) == 0): ?>
+                <br><strong>Necesitas que el administrador te asigne materias y secciones primero.</strong>
+                <?php endif; ?>
             </div>
             <?php endif; ?>
         </div>
     </div>
 
     <!-- Botones de Acción -->
+    <?php if (count($estudiantes) > 0): ?>
     <div class="mt-4 mb-4">
-        <button onclick="imprimirLista()" class="btn btn-primary">
+        <button onclick="window.print()" class="btn btn-primary">
             <i class="fas fa-print"></i> Imprimir Lista
         </button>
-        <button onclick="exportarExcel()" class="btn btn-success">
-            <i class="fas fa-file-excel"></i> Exportar a Excel
-        </button>
     </div>
-</div>
-
-<!-- Modal para Ver Detalles -->
-<div class="modal fade" id="modalDetalles" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header bg-info text-white">
-                <h5 class="modal-title">Detalles del Estudiante</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body" id="detallesEstudiante">
-                <div class="text-center">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Cargando...</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php endif; ?>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -405,25 +445,6 @@ $(document).ready(function() {
         order: [[1, 'asc']]
     });
 });
-
-function verDetalles(alumnoId) {
-    const modal = new bootstrap.Modal(document.getElementById('modalDetalles'));
-    modal.show();
-    
-    // Aquí puedes cargar los detalles con AJAX si quieres
-    document.getElementById('detallesEstudiante').innerHTML = `
-        <p>Funcionalidad de detalles en desarrollo...</p>
-        <p>ID del alumno: ${alumnoId}</p>
-    `;
-}
-
-function imprimirLista() {
-    window.print();
-}
-
-function exportarExcel() {
-    alert('Funcionalidad de exportación a Excel en desarrollo');
-}
 </script>
 
 </body>

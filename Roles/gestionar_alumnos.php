@@ -7,6 +7,7 @@ verificar_rol([1]); // Solo administradores
 $nombre_admin = $_SESSION['usuario']['nombre'] ?? 'Administrador';
 $mensaje = '';
 $tipo_mensaje = '';
+$alumno_registrado_id = null;
 
 // Procesar acciones
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
@@ -32,11 +33,27 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 if (empty($nombre) || empty($cedula) || empty($usuario) || empty($clave)) {
                     throw new Exception("Campos obligatorios faltantes");
                 }
-                
+
+                if (!ctype_digit($cedula)) {
+                    throw new Exception("La cédula solo debe contener números");
+                }
+
                 if (!filter_var($correo, FILTER_VALIDATE_EMAIL)) {
                     throw new Exception("Email inválido");
                 }
-                
+
+                if (!empty($telefono) && !ctype_digit($telefono)) {
+                    throw new Exception("El teléfono solo debe contener números");
+                }
+
+                // Verificar que la cédula no esté registrada
+                $sqlCheckCed = "SELECT alumno_id FROM alumnos WHERE cedula = :cedula";
+                $stmtCheckCed = $pdo->prepare($sqlCheckCed);
+                $stmtCheckCed->execute(['cedula' => $cedula]);
+                if ($stmtCheckCed->rowCount() > 0) {
+                    throw new Exception("Ya existe un alumno registrado con esa cédula");
+                }
+
                 // Verificar que el usuario no exista
                 $sqlCheck = "SELECT usuario_id FROM usuarios WHERE usuario = :usuario";
                 $stmtCheck = $pdo->prepare($sqlCheck);
@@ -76,9 +93,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     'usuario_id' => $usuario_id
                 ]);
                 
+                $nuevo_alumno_id = $pdo->lastInsertId();
+
                 registrar_log_seguridad('Alumno creado', "Alumno: {$nombre}, Usuario: {$usuario}");
                 $mensaje = "Alumno registrado exitosamente";
                 $tipo_mensaje = "success";
+                $alumno_registrado_id = $nuevo_alumno_id; // Para mostrar botones PDF
                 break;
                 
             case 'editar':
@@ -97,7 +117,23 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 if (!filter_var($correo, FILTER_VALIDATE_EMAIL)) {
                     throw new Exception("Email inválido");
                 }
-                
+
+                if (!ctype_digit($cedula)) {
+                    throw new Exception("La cédula solo debe contener números");
+                }
+
+                if (!empty($telefono) && !ctype_digit($telefono)) {
+                    throw new Exception("El teléfono solo debe contener números");
+                }
+
+                // Verificar cédula duplicada (excluyendo el alumno actual)
+                $sqlCheckCed = "SELECT alumno_id FROM alumnos WHERE cedula = :cedula AND alumno_id != :alumno_id";
+                $stmtCheckCed = $pdo->prepare($sqlCheckCed);
+                $stmtCheckCed->execute(['cedula' => $cedula, 'alumno_id' => $alumno_id]);
+                if ($stmtCheckCed->rowCount() > 0) {
+                    throw new Exception("Ya existe otro alumno registrado con esa cédula");
+                }
+
                 $sql = "UPDATE alumnos SET 
                         nombre_alumno = :nombre,
                         edad = :edad,
@@ -213,7 +249,20 @@ $alumnos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     <?php if ($mensaje): ?>
     <div class="alert alert-<?php echo $tipo_mensaje == 'success' ? 'success' : 'danger'; ?> alert-dismissible fade show">
+        <i class="fas fa-<?php echo $tipo_mensaje == 'success' ? 'check-circle' : 'exclamation-circle'; ?>"></i>
         <?php echo htmlspecialchars($mensaje); ?>
+        <?php if ($tipo_mensaje == 'success' && $alumno_registrado_id): ?>
+        <hr>
+        <p class="mb-1"><strong>Generar documentos del estudiante registrado:</strong></p>
+        <a href="comprobante_registro_pdf.php?alumno_id=<?php echo $alumno_registrado_id; ?>" 
+           target="_blank" class="btn btn-sm btn-light me-2">
+            <i class="fas fa-file-pdf text-danger"></i> Descargar Comprobante de Registro
+        </a>
+        <a href="ficha_estudiante_pdf.php?alumno_id=<?php echo $alumno_registrado_id; ?>" 
+           target="_blank" class="btn btn-sm btn-light">
+            <i class="fas fa-id-card text-primary"></i> Descargar Ficha del Estudiante
+        </a>
+        <?php endif; ?>
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
     <?php endif; ?>
@@ -272,18 +321,26 @@ $alumnos = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                 </span>
                             </td>
                             <td class="table-actions">
-                                <button class="btn btn-sm btn-info" onclick="verDetalle(<?php echo htmlspecialchars(json_encode($alumno)); ?>)">
+                                <button class="btn btn-sm btn-info" onclick="verDetalle(<?php echo htmlspecialchars(json_encode($alumno)); ?>)" title="Ver detalle">
                                     <i class="fas fa-eye"></i>
                                 </button>
-                                <button class="btn btn-sm btn-warning" onclick="editarAlumno(<?php echo htmlspecialchars(json_encode($alumno)); ?>)">
+                                <button class="btn btn-sm btn-warning" onclick="editarAlumno(<?php echo htmlspecialchars(json_encode($alumno)); ?>)" title="Editar">
                                     <i class="fas fa-edit"></i>
                                 </button>
+                                <a href="comprobante_registro_pdf.php?alumno_id=<?php echo $alumno['alumno_id']; ?>" 
+                                   target="_blank" class="btn btn-sm btn-danger" title="Comprobante PDF">
+                                    <i class="fas fa-file-pdf"></i>
+                                </a>
+                                <a href="ficha_estudiante_pdf.php?alumno_id=<?php echo $alumno['alumno_id']; ?>" 
+                                   target="_blank" class="btn btn-sm btn-primary" title="Ficha PDF">
+                                    <i class="fas fa-id-card"></i>
+                                </a>
                                 <form method="POST" style="display: inline;">
                                     <input type="hidden" name="accion" value="cambiar_estado">
                                     <input type="hidden" name="alumno_id" value="<?php echo $alumno['alumno_id']; ?>">
                                     <input type="hidden" name="nuevo_estado" value="<?php echo $alumno['estado'] == 1 ? 0 : 1; ?>">
                                     <button type="submit" class="btn btn-sm <?php echo $alumno['estado'] == 1 ? 'btn-danger' : 'btn-success'; ?>"
-                                            onclick="return confirm('¿Estás seguro?')">
+                                            onclick="return confirm('¿Estás seguro?')" title="<?php echo $alumno['estado'] == 1 ? 'Desactivar' : 'Activar'; ?>">
                                         <i class="fas fa-<?php echo $alumno['estado'] == 1 ? 'ban' : 'check'; ?>"></i>
                                     </button>
                                 </form>
@@ -356,11 +413,19 @@ $alumnos = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Cédula *</label>
-                            <input type="text" name="cedula" class="form-control" required>
+                            <input type="text" name="cedula" class="form-control" required
+                                   pattern="[0-9]+" inputmode="numeric"
+                                   oninput="this.value = this.value.replace(/[^0-9]/g, '')"
+                                   title="Solo se permiten números">
+                            <small class="text-muted">Solo números, sin puntos ni guiones</small>
                         </div>
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Teléfono</label>
-                            <input type="text" name="telefono" class="form-control">
+                            <input type="text" name="telefono" class="form-control"
+                                   pattern="[0-9]+" inputmode="numeric"
+                                   oninput="this.value = this.value.replace(/[^0-9]/g, '')"
+                                   title="Solo se permiten números">
+                            <small class="text-muted">Solo números, sin espacios ni guiones</small>
                         </div>
                     </div>
                     
@@ -456,11 +521,19 @@ $alumnos = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Cédula</label>
-                            <input type="text" name="cedula" id="edit_cedula" class="form-control" required>
+                            <input type="text" name="cedula" id="edit_cedula" class="form-control" required
+                                   pattern="[0-9]+" inputmode="numeric"
+                                   oninput="this.value = this.value.replace(/[^0-9]/g, '')"
+                                   title="Solo se permiten números">
+                            <small class="text-muted">Solo números, sin puntos ni guiones</small>
                         </div>
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Teléfono</label>
-                            <input type="text" name="telefono" id="edit_telefono" class="form-control">
+                            <input type="text" name="telefono" id="edit_telefono" class="form-control"
+                                   pattern="[0-9]+" inputmode="numeric"
+                                   oninput="this.value = this.value.replace(/[^0-9]/g, '')"
+                                   title="Solo se permiten números">
+                            <small class="text-muted">Solo números, sin espacios ni guiones</small>
                         </div>
                     </div>
                     
@@ -497,6 +570,12 @@ $alumnos = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 <!-- Se llenará con JavaScript -->
             </div>
             <div class="modal-footer">
+                <a id="btn-comprobante-pdf" href="#" target="_blank" class="btn btn-danger">
+                    <i class="fas fa-file-pdf"></i> Comprobante PDF
+                </a>
+                <a id="btn-ficha-pdf" href="#" target="_blank" class="btn btn-primary">
+                    <i class="fas fa-id-card"></i> Ficha PDF
+                </a>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
@@ -568,6 +647,8 @@ function verDetalle(alumno) {
         </table>
     `;
     document.getElementById('detalleContenido').innerHTML = html;
+    document.getElementById('btn-comprobante-pdf').href = 'comprobante_registro_pdf.php?alumno_id=' + alumno.alumno_id;
+    document.getElementById('btn-ficha-pdf').href = 'ficha_estudiante_pdf.php?alumno_id=' + alumno.alumno_id;
     new bootstrap.Modal(document.getElementById('modalDetalle')).show();
 }
 </script>

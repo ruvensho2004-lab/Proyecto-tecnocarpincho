@@ -1,6 +1,4 @@
 <?php
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
 session_start();
 
 // Verificar que sea administrador
@@ -13,6 +11,30 @@ require_once '../includes/conexion.php';
 
 $nombre_admin = $_SESSION['usuario']['nombre'] ?? 'Administrador';
 
+// Verificar qué columnas tiene la tabla alumnos
+try {
+    $check_columns = $pdo->query("SHOW COLUMNS FROM alumnos");
+    $columns = $check_columns->fetchAll(PDO::FETCH_COLUMN);
+    
+    // Determinar qué columnas están disponibles en alumnos
+    $has_nombre = in_array('nombre', $columns);
+    $has_apellido = in_array('apellido', $columns);
+    $has_nombre_completo = in_array('nombre_completo', $columns);
+    $has_nombre_alumno = in_array('nombre_alumno', $columns); // ← FIX: columna real en BD
+    $has_cedula = in_array('cedula', $columns);
+    $has_fecha_nacimiento = in_array('fecha_nacimiento', $columns);
+    $has_direccion = in_array('direccion', $columns);
+    $has_telefono = in_array('telefono', $columns);
+    
+    // Verificar columnas de la tabla usuarios
+    $check_columns_usuarios = $pdo->query("SHOW COLUMNS FROM usuarios");
+    $columns_usuarios = $check_columns_usuarios->fetchAll(PDO::FETCH_COLUMN);
+    $has_fecha_creacion = in_array('fecha_creacion', $columns_usuarios);
+    
+} catch (Exception $e) {
+    die("Error al verificar estructura: " . $e->getMessage());
+}
+
 // Obtener todos los grados y secciones
 $grados = $pdo->query("SELECT * FROM grados ORDER BY grado_id")->fetchAll(PDO::FETCH_ASSOC);
 $secciones = $pdo->query("SELECT * FROM secciones ORDER BY nombre_seccion")->fetchAll(PDO::FETCH_ASSOC);
@@ -23,21 +45,48 @@ $filtro_seccion = isset($_GET['seccion']) ? (int)$_GET['seccion'] : 0;
 $filtro_estado = isset($_GET['estado']) ? $_GET['estado'] : 'todos';
 $busqueda = isset($_GET['busqueda']) ? trim($_GET['busqueda']) : '';
 
+// Construir SELECT dinámico según columnas disponibles
+$select_fields = "a.alumno_id";
+
+if ($has_nombre_completo) {
+    $select_fields .= ", a.nombre_completo";
+} elseif ($has_nombre && $has_apellido) {
+    $select_fields .= ", a.nombre, a.apellido";
+} elseif ($has_nombre) {
+    $select_fields .= ", a.nombre";
+} elseif ($has_nombre_alumno) {
+    $select_fields .= ", a.nombre_alumno"; // ← FIX: columna real en BD
+}
+
+if ($has_cedula) {
+    $select_fields .= ", a.cedula";
+}
+
+if ($has_fecha_nacimiento) {
+    $select_fields .= ", a.fecha_nacimiento";
+}
+
+if ($has_direccion) {
+    $select_fields .= ", a.direccion";
+}
+
+if ($has_telefono) {
+    $select_fields .= ", a.telefono";
+}
+
 // Construir consulta de estudiantes
 $sql_estudiantes = "SELECT 
-                        a.alumno_id,
-                        a.nombre,
-                        a.apellido,
-                        a.cedula,
-                        a.fecha_nacimiento,
-                        a.direccion,
-                        a.telefono,
+                        $select_fields,
                         g.nombre_grado,
                         s.nombre_seccion,
                         u.usuario,
-                        u.estado,
-                        u.fecha_creacion
-                    FROM alumnos a
+                        u.estado";
+
+if ($has_fecha_creacion) {
+    $sql_estudiantes .= ", u.fecha_creacion";
+}
+
+$sql_estudiantes .= " FROM alumnos a
                     INNER JOIN grados g ON a.grado_id = g.grado_id
                     INNER JOIN secciones s ON a.seccion_id = s.seccion_id
                     INNER JOIN usuarios u ON a.usuario_id = u.usuario_id
@@ -62,11 +111,29 @@ if ($filtro_estado === 'activo') {
 }
 
 if (!empty($busqueda)) {
-    $sql_estudiantes .= " AND (a.nombre LIKE :busqueda OR a.apellido LIKE :busqueda OR a.cedula LIKE :busqueda OR u.usuario LIKE :busqueda)";
-    $params['busqueda'] = "%$busqueda%";
+    $search_conditions = [];
+    if ($has_nombre) $search_conditions[] = "a.nombre LIKE :busqueda";
+    if ($has_apellido) $search_conditions[] = "a.apellido LIKE :busqueda";
+    if ($has_nombre_completo) $search_conditions[] = "a.nombre_completo LIKE :busqueda";
+    if ($has_nombre_alumno) $search_conditions[] = "a.nombre_alumno LIKE :busqueda"; // ← FIX
+    if ($has_cedula) $search_conditions[] = "a.cedula LIKE :busqueda";
+    $search_conditions[] = "u.usuario LIKE :busqueda";
+    
+    if (!empty($search_conditions)) {
+        $sql_estudiantes .= " AND (" . implode(" OR ", $search_conditions) . ")";
+        $params['busqueda'] = "%$busqueda%";
+    }
 }
 
-$sql_estudiantes .= " ORDER BY g.nombre_grado, s.nombre_seccion, a.apellido, a.nombre";
+$sql_estudiantes .= " ORDER BY g.nombre_grado, s.nombre_seccion";
+
+if ($has_apellido) {
+    $sql_estudiantes .= ", a.apellido, a.nombre";
+} elseif ($has_nombre) {
+    $sql_estudiantes .= ", a.nombre";
+} elseif ($has_nombre_alumno) {
+    $sql_estudiantes .= ", a.nombre_alumno"; // ← FIX
+}
 
 $stmt_estudiantes = $pdo->prepare($sql_estudiantes);
 $stmt_estudiantes->execute($params);
@@ -79,17 +146,33 @@ $estudiantes_inactivos = $total_estudiantes - $estudiantes_activos;
 
 // Calcular edad promedio
 $edad_promedio = 0;
-$count_edad = 0;
-foreach ($estudiantes as $est) {
-    if (!empty($est['fecha_nacimiento'])) {
-        $fecha_nac = new DateTime($est['fecha_nacimiento']);
-        $hoy = new DateTime();
-        $edad = $hoy->diff($fecha_nac)->y;
-        $edad_promedio += $edad;
-        $count_edad++;
+if ($has_fecha_nacimiento) {
+    $count_edad = 0;
+    foreach ($estudiantes as $est) {
+        if (!empty($est['fecha_nacimiento'])) {
+            $fecha_nac = new DateTime($est['fecha_nacimiento']);
+            $hoy = new DateTime();
+            $edad = $hoy->diff($fecha_nac)->y;
+            $edad_promedio += $edad;
+            $count_edad++;
+        }
     }
+    $edad_promedio = $count_edad > 0 ? round($edad_promedio / $count_edad, 1) : 0;
 }
-$edad_promedio = $count_edad > 0 ? round($edad_promedio / $count_edad, 1) : 0;
+
+// Función para obtener nombre completo del estudiante
+function obtener_nombre_estudiante($estudiante) {
+    if (isset($estudiante['nombre_completo'])) {
+        return $estudiante['nombre_completo'];
+    } elseif (isset($estudiante['nombre']) && isset($estudiante['apellido'])) {
+        return $estudiante['nombre'] . ' ' . $estudiante['apellido'];
+    } elseif (isset($estudiante['nombre'])) {
+        return $estudiante['nombre'];
+    } elseif (isset($estudiante['nombre_alumno'])) {
+        return $estudiante['nombre_alumno']; // ← FIX: columna real en BD
+    }
+    return 'Sin nombre';
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -265,7 +348,7 @@ $edad_promedio = $count_edad > 0 ? round($edad_promedio / $count_edad, 1) : 0;
                 <div class="col-md-4">
                     <label class="form-label">Buscar</label>
                     <input type="text" name="busqueda" class="form-control" 
-                           placeholder="Nombre, apellido, cédula o usuario..." 
+                           placeholder="Nombre, cédula o usuario..." 
                            value="<?php echo htmlspecialchars($busqueda); ?>">
                 </div>
                 
@@ -303,44 +386,48 @@ $edad_promedio = $count_edad > 0 ? round($edad_promedio / $count_edad, 1) : 0;
                         <tr>
                             <th>ID</th>
                             <th>Estudiante</th>
-                            <th>Cédula</th>
+                            <?php if ($has_cedula): ?><th>Cédula</th><?php endif; ?>
                             <th>Grado</th>
                             <th>Sección</th>
                             <th>Usuario</th>
-                            <th>Teléfono</th>
+                            <?php if ($has_telefono): ?><th>Teléfono</th><?php endif; ?>
                             <th>Estado</th>
                             <th class="no-print">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach ($estudiantes as $estudiante): ?>
+                        <?php foreach ($estudiantes as $estudiante): 
+                            $nombre_completo = obtener_nombre_estudiante($estudiante);
+                        ?>
                         <tr>
                             <td><?php echo $estudiante['alumno_id']; ?></td>
                             <td>
                                 <div class="d-flex align-items-center">
                                     <div class="student-photo me-2">
-                                        <?php echo strtoupper(substr($estudiante['nombre'], 0, 1)); ?>
+                                        <?php echo strtoupper(substr($nombre_completo, 0, 1)); ?>
                                     </div>
                                     <div>
-                                        <strong><?php echo htmlspecialchars($estudiante['nombre'] . ' ' . $estudiante['apellido']); ?></strong>
+                                        <strong><?php echo htmlspecialchars($nombre_completo); ?></strong>
                                     </div>
                                 </div>
                             </td>
+                            <?php if ($has_cedula): ?>
                             <td><?php echo htmlspecialchars($estudiante['cedula'] ?? 'N/A'); ?></td>
+                            <?php endif; ?>
                             <td><span class="badge bg-info"><?php echo htmlspecialchars($estudiante['nombre_grado']); ?></span></td>
                             <td><span class="badge bg-secondary"><?php echo htmlspecialchars($estudiante['nombre_seccion']); ?></span></td>
                             <td><?php echo htmlspecialchars($estudiante['usuario']); ?></td>
+                            <?php if ($has_telefono): ?>
                             <td><?php echo htmlspecialchars($estudiante['telefono'] ?? 'N/A'); ?></td>
+                            <?php endif; ?>
                             <td>
                                 <span class="badge <?php echo $estudiante['estado'] == 1 ? 'badge-activo' : 'badge-inactivo'; ?>">
                                     <?php echo $estudiante['estado'] == 1 ? 'Activo' : 'Inactivo'; ?>
                                 </span>
                             </td>
                             <td class="no-print">
-                                <button class="btn btn-sm btn-info" onclick="verDetalles(<?php echo $estudiante['alumno_id']; ?>)">
-                                    <i class="fas fa-eye"></i>
-                                </button>
-                                <a href="gestionar_alumnos.php?edit=<?php echo $estudiante['alumno_id']; ?>" class="btn btn-sm btn-warning">
+                                <a href="gestionar_alumnos.php?edit=<?php echo $estudiante['alumno_id']; ?>" 
+                                   class="btn btn-sm btn-warning" title="Editar">
                                     <i class="fas fa-edit"></i>
                                 </a>
                             </td>
@@ -359,6 +446,7 @@ $edad_promedio = $count_edad > 0 ? round($edad_promedio / $count_edad, 1) : 0;
     </div>
 
     <!-- Botones de Acción -->
+    <?php if (count($estudiantes) > 0): ?>
     <div class="mt-4 mb-4 no-print">
         <button onclick="window.print()" class="btn btn-primary">
             <i class="fas fa-print"></i> Imprimir Lista
@@ -366,29 +454,8 @@ $edad_promedio = $count_edad > 0 ? round($edad_promedio / $count_edad, 1) : 0;
         <button onclick="exportarExcel()" class="btn btn-success">
             <i class="fas fa-file-excel"></i> Exportar a Excel
         </button>
-        <button onclick="exportarPDF()" class="btn btn-danger">
-            <i class="fas fa-file-pdf"></i> Exportar a PDF
-        </button>
     </div>
-</div>
-
-<!-- Modal para Ver Detalles -->
-<div class="modal fade" id="modalDetalles" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title">Detalles del Estudiante</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body" id="detallesEstudiante">
-                <div class="text-center">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Cargando...</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php endif; ?>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -402,47 +469,9 @@ $(document).ready(function() {
             url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
         },
         pageLength: 25,
-        order: [[1, 'asc']],
-        dom: 'Bfrtip',
-        buttons: ['copy', 'csv', 'excel', 'pdf', 'print']
+        order: [[1, 'asc']]
     });
 });
-
-function verDetalles(alumnoId) {
-    const modal = new bootstrap.Modal(document.getElementById('modalDetalles'));
-    modal.show();
-    
-    // Cargar detalles del estudiante (puedes mejorar esto con AJAX)
-    fetch(`get_alumno_details.php?id=${alumnoId}`)
-        .then(response => response.json())
-        .then(data => {
-            let html = `
-                <div class="row">
-                    <div class="col-md-6">
-                        <p><strong>Nombre:</strong> ${data.nombre} ${data.apellido}</p>
-                        <p><strong>Cédula:</strong> ${data.cedula || 'N/A'}</p>
-                        <p><strong>Fecha de Nacimiento:</strong> ${data.fecha_nacimiento || 'N/A'}</p>
-                    </div>
-                    <div class="col-md-6">
-                        <p><strong>Grado:</strong> ${data.nombre_grado}</p>
-                        <p><strong>Sección:</strong> ${data.nombre_seccion}</p>
-                        <p><strong>Teléfono:</strong> ${data.telefono || 'N/A'}</p>
-                    </div>
-                </div>
-                <div class="row mt-3">
-                    <div class="col-12">
-                        <p><strong>Dirección:</strong> ${data.direccion || 'N/A'}</p>
-                    </div>
-                </div>
-            `;
-            document.getElementById('detallesEstudiante').innerHTML = html;
-        })
-        .catch(error => {
-            document.getElementById('detallesEstudiante').innerHTML = `
-                <div class="alert alert-danger">Error al cargar los detalles</div>
-            `;
-        });
-}
 
 function exportarExcel() {
     // Funcionalidad básica de exportación
@@ -453,10 +482,6 @@ function exportarExcel() {
     link.href = url;
     link.download = 'lista_estudiantes.xls';
     link.click();
-}
-
-function exportarPDF() {
-    alert('Funcionalidad de exportación a PDF en desarrollo');
 }
 </script>
 
